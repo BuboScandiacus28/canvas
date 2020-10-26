@@ -6,6 +6,7 @@ class Chart {
         this.ctx = ctx;
 
         this.type = obj.type;
+
         this.data = obj.data;
         this.title = obj.data.datasets.label;
 
@@ -33,8 +34,6 @@ class Chart {
         } else if (this.type === 'diagramm') {
             this.setColumn();
         }
-
-        this.setLegend();
     }
 
     get type() {
@@ -96,14 +95,16 @@ class Chart {
     }
 
     setCanvasSize() {
-        this.canvas.height = (32 * (this.countSteps + 2)) + 20 + (32 * this.data.labels.length) + 32;
-        this.canvas.width = (this.data.labels.length * 2 * 32) + (String(this.limit).length * 7) + 5;
+        this.canvas.height = (32 * (this.countSteps + 2)) + 20;
+        this.canvas.width = (this.data.labels.length * 2 * 32) + (String(this.limit).length * 7) + 6;
+        if (this.type === 'graph') this.canvas.width += -80;
     }
 
     setGrid() {
         let limit = this.limit,
-            x = String(limit).length * 7,
-            y = 32;
+            x = (String(limit).length * 7),
+            y = 32,
+            count = this.data.labels.length;
 
         this.ctx.textAlign = "end";
 
@@ -111,35 +112,59 @@ class Chart {
 
             this.ctx.fillText(limit, x, y);
 
-            this.setLine(0, y + 5, this.canvas.width, y + 5, false);
-
             if (limit <= 0) break;
 
             y += 32;
             limit -= this.step;
         }
 
-        x += 5;
+        x = 0;
+        limit = this.limit;
+        y = 32;
+
+        while (true) {
+
+            if (limit <= 0) break;
+
+            this.setLine(x, y + 5, x + 4, y + 5, false);
+            
+            if (x >= this.canvas.width) {
+                x = 0;
+                y += 32;
+                limit -= this.step;
+            } else {
+                x += 8;
+            }
+
+        }
+
+        this.setLine(0, y + 5, this.canvas.width, y + 5, false);
+
+        x = (String(limit).length * 7) + 11;
         y += 32;
 
         this.setLine(x, 0, x, y + 5, false);
-    }
 
-    setLegend() {
-        let x = String(this.limit).length * 7,
-            y = (32 * (this.countSteps + 2)) + 32,
-            data = this.data.datasets.data,
-            labels = this.data.labels;
+        y = 0;
+        x += 49;
 
-        for (let i = 0; i < labels.length; i++) {
+        while (true) {
 
-            this.setCircle(x, y, i + 1);
+            if (count <= 0) break;
 
-            this.ctx.textAlign = "start";
-            this.ctx.fillText(` — ${labels[i]} со значением: ${data[i]}`, x + 13, y + 3);
+            this.setLine(x, y, x, y + 4, false);
+            
+            if (y >= (32 * (this.countSteps + 1))) {
+                x += 64;
+                y = 0;
+                count--;
+            } else {
+                y += 8;
+            }
 
-            y += 32;
         }
+
+        
     }
 
     setColumn() {
@@ -148,17 +173,20 @@ class Chart {
             y = 0,
             data = this.data.datasets.data,
             columnHight = 0,
-            circleY = (32 * (this.countSteps + 2)) - 10;
+            circleY = (32 * (this.countSteps + 2)) - 10,
+            contentColor = this.data.datasets.contentColor;
 
         for (let i = 0; i < data.length; i++) {
 
-            this.ctx.fillStyle = this.data.datasets.contentColor;
+            this.ctx.strokeStyle = `rgba(${contentColor.r}, ${contentColor.g}, ${contentColor.b}, 1)`;
+            this.ctx.fillStyle = `rgba(${contentColor.r}, ${contentColor.g}, ${contentColor.b}, 0.7)`;
 
             y = ((this.countSteps - (data[i] * this.countSteps) / limit) * 32) + 32 + 5;
 
             columnHight = ((data[i] * this.countSteps) / limit) * 32;
 
-            this.ctx.fillRect(x, y, 32, columnHight);
+            this.ctx.fillRect(x, y, 32, columnHight - 1);
+            this.ctx.strokeRect(x, y, 32, columnHight - 1);
 
             this.setCircle(x + 16, circleY, i + 1);
 
@@ -172,27 +200,41 @@ class Chart {
             startY = (32 * (this.countSteps + 1)) + 5,
             endX = startX + 48,
             endY = 0,
-            data = this.data.datasets.data;
+            data = this.data.datasets.data,
+            labelColor = this.data.datasets.labelColor,
+            contentColor = this.data.datasets.contentColor;
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = `rgba(${contentColor.r}, ${contentColor.g}, ${contentColor.b}, 1)`;
+        this.ctx.fillStyle = `rgba(${contentColor.r}, ${contentColor.g}, ${contentColor.b}, 0.5)`;
 
         for (let i = 0; i < data.length; i++) {
 
             endY = ((this.countSteps - (data[i] * this.countSteps) / limit) * 32) + 32 + 5;
 
-
-            this.setLine(startX, startY, endX, endY);
-
-            if (i > 0) {
-                this.setCircle(startX, startY, i);
-            }
-            if (i === data.length - 1) {
-                this.setCircle(endX, endY, i + 1);
+            if (i === 0) {
+                startY = endY;
+                this.ctx.moveTo(startX, endY);
             }
 
-            startX = endX;
-            startY = endY;
+            if (i !== 0) {
+                this.ctx.bezierCurveTo(startX + 32, startY, startX + 32, endY, endX, endY);
 
-            endX += 64;
+                startX = endX;
+                startY = endY;
+
+                endX += 64;
+            }
+
         }
+
+        this.ctx.lineTo(startX, (32 * (this.countSteps + 1)) + 4);
+
+        this.ctx.lineTo((String(limit).length * 7 + 5), (32 * (this.countSteps + 1)) + 4);
+
+        this.ctx.stroke();
+
+        this.ctx.fill();
 
     }
 
@@ -213,7 +255,7 @@ class Chart {
         if (checkColor) {
             this.ctx.strokeStyle = this.data.datasets.contentColor;
         }
-        
+
         this.ctx.beginPath();
 
         this.ctx.moveTo(startX, startY);
@@ -264,10 +306,10 @@ class Chart {
 
 }
 
-let canvas = document.getElementById('myChart');
-let ctx = canvas.getContext('2d')
- 
-let chart = new Chart(canvas, ctx, {
+let canvas1 = document.getElementById('myChart1');
+let ctx1 = canvas1.getContext('2d')
+
+let chart1 = new Chart(canvas1, ctx1, {
     type: 'diagramm',
 
     data: {
@@ -275,10 +317,37 @@ let chart = new Chart(canvas, ctx, {
         datasets: {
             label: 'My First dataset',
             labelColor: '#FFFFCC',
-            contentColor: '#996600',
+            contentColor: {
+                r: '255',
+                g: '218',
+                b: '185'
+            },
             data: [24, 10, 12, 2, 23, 23, 45, 56, 5, 2, 20, 30, 25]
         }
     },
 });
 
-chart.getAll();
+chart1.getAll();
+
+let canvas2 = document.getElementById('myChart2');
+let ctx2 = canvas2.getContext('2d')
+
+let chart2 = new Chart(canvas2, ctx2, {
+    type: 'graph',
+
+    data: {
+        labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'February', 'March', 'April', 'May', 'June', 'July'],
+        datasets: {
+            label: 'My First dataset',
+            labelColor: '#FFFFCC',
+            contentColor: {
+                r: '255',
+                g: '218',
+                b: '185'
+            },
+            data: [24, 10, 12, 2, 23, 23, 45, 56, 5, 2, 20, 30, 25]
+        }
+    },
+});
+
+chart2.getAll();
