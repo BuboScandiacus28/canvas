@@ -5,12 +5,12 @@ class Chart {
 
         this.ctx = ctx;
 
+        this.coordinatesArr = [];
+
         this.type = obj.type;
 
         this.data = obj.data;
         this.title = obj.data.datasets.label;
-
-        this.setTitle();
 
         this.maxData = this.data.datasets.data;
 
@@ -34,6 +34,8 @@ class Chart {
         } else if (this.type === 'diagramm') {
             this.setColumn();
         }
+
+        this.setEnvironmentAndPrompt();
     }
 
     get type() {
@@ -127,7 +129,7 @@ class Chart {
             if (limit <= 0) break;
 
             this.setLine(x, y + 5, x + 4, y + 5, false);
-            
+
             if (x >= this.canvas.width) {
                 x = 0;
                 y += 32;
@@ -153,7 +155,7 @@ class Chart {
             if (count <= 0) break;
 
             this.setLine(x, y, x, y + 4, false);
-            
+
             if (y >= (32 * (this.countSteps + 1))) {
                 x += 64;
                 y = 0;
@@ -164,7 +166,7 @@ class Chart {
 
         }
 
-        
+
     }
 
     setColumn() {
@@ -214,7 +216,7 @@ class Chart {
 
             if (i === 0) {
                 startY = endY;
-                this.ctx.moveTo(startX, endY);
+                this.ctx.moveTo(startX, startY);
             }
 
             if (i !== 0) {
@@ -225,6 +227,11 @@ class Chart {
 
                 endX += 64;
             }
+
+            this.coordinatesArr.push({
+                x: startX,
+                y: startY
+            })
 
         }
 
@@ -275,11 +282,100 @@ class Chart {
         }
     }
 
-    setTitle() {
+    setEnvironmentAndPrompt() {
+        let wrapper = document.createElement('div');
+
         let title = document.createElement('h2');
+
         title.textContent = this.title;
         title.style.textAlign = 'center';
-        this.canvas.before(title);
+
+        wrapper.id = this.canvas.id + '_wrapper';
+
+        this.canvas.before(wrapper);
+
+        wrapper.append(title);
+        wrapper.append(this.canvas);
+
+        wrapper.style.width = this.canvas.width + 'px';
+
+        let prompt = document.createElement('div'),
+            invisibleString = document.createElement('div'),
+            labelColor = this.data.datasets.labelColor,
+            labels = JSON.stringify(this.data.labels),
+            coords = JSON.stringify(this.coordinatesArr),
+            data = JSON.stringify(this.data.datasets.data),
+            contentColor = this.data.datasets.contentColor;
+
+        wrapper.style.position = 'relative';
+        wrapper.style.zIndex = '2';
+
+        this.canvas.style.zIndex = '2';
+
+        invisibleString.style.display = 'none';
+        invisibleString.textContent = labels + ' - ' + coords + ' - ' + data;
+        invisibleString.id = this.canvas.id + '_invisibleString';
+
+        prompt.id = this.canvas.id + '_chartPrompt'
+        prompt.style.position = 'absolute';
+        prompt.style.padding = '5px 10px';
+        prompt.style.border = `1px solid rgba(0, 0, 0, 1)`;
+        prompt.style.borderRadius = '10px';
+        prompt.style.top = `0px`;
+        prompt.style.left = `0px`;
+        prompt.style.backgroundColor = `rgba(0, 0, 0, 0.5)`;
+        prompt.style.color = '#fff';
+        prompt.style.textAlign = 'center';
+        prompt.style.zIndex = '3';
+        prompt.style.display = 'none';
+        
+
+        this.canvas.addEventListener('mouseout', e => {
+            let prompt = document.getElementById(e.target.id + '_chartPrompt');
+
+            prompt.style.display = 'none';
+        });
+
+        this.canvas.addEventListener('mousemove', e => {
+
+            let coordPrompt = {},
+                prompt = document.getElementById(e.target.id + '_chartPrompt'),
+                invisibleString = document.getElementById(e.target.id + '_invisibleString').textContent.split(' - '),
+                labels = JSON.parse(invisibleString[0]),
+                coordinatesArr = JSON.parse(invisibleString[1]),
+                datasets = JSON.parse(invisibleString[2]),
+                coordMouse = {
+                    x: e.pageX - e.target.offsetLeft,
+                    y: e.pageY - e.target.offsetTop
+                };
+
+            for (let i = 0; i < coordinatesArr.length; i++) {
+
+                coordPrompt = coordinatesArr[i];
+
+                //console.log(coordPrompt);
+
+                if (coordMouse.x >= coordPrompt.x - 32 && coordMouse.x <= coordPrompt.x + 32) {
+                    let title = document.createTextNode(labels[i]),
+                        data = document.createTextNode('axisY:' + datasets[i]);
+                    prompt.innerHTML = '';
+                    prompt.append(title);
+                    prompt.innerHTML += '<br>';
+                    prompt.append(data);
+                    prompt.style.display = 'block';
+                    prompt.style.top = `${coordPrompt.y}px`;
+                    prompt.style.left = `${coordPrompt.x - (prompt.offsetWidth / 2)}px`;
+                    prompt.style.zIndex = 3;
+
+                }
+
+            }
+
+            e.preventDefault();
+        });
+
+        wrapper.append(invisibleString);
+        wrapper.append(prompt);
     }
 
     getAll() {
@@ -302,6 +398,16 @@ class Chart {
         console.log('countSteps - ' + this.countSteps);
 
         console.log('title - ' + this.title);
+
+        for (let i = 0; i < this.coordinatesArr.length; i++) {
+
+            for (let key in this.coordinatesArr[i]) {
+                console.log(`coordinatesArr[${i}].${key} - ` + this.coordinatesArr[i][key]);
+            }
+
+        }
+
+
     }
 
 }
